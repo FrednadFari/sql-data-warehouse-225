@@ -1,0 +1,25 @@
+--Creating New DataBase with Three Schemas for each layers bronze/silver/gold
+--NOTE: This Scrip will DROP the named DataBase if is already Exists ** IMPORTANT ** to void it if we are not sure about the DATABASE 
+USE maseter; -->> to switch and making new DataBase
+GO
+--DROP >> Will Drop the exists "DataWareHouse" if is already exists
+if exists ( select 1 from sys.database where name = 'DataWareHouse')
+begin
+    alter database DataWareHouse set single_user with rollback immediate;
+    drop database DataWareHouse;
+end;
+GO
+
+--Create DataBase  "DataWareHouse"
+create Database DataWareHouse;
+Go
+-- Swith to DateWareHouse
+use DataWareHouse;
+Go
+--Create schemas bronze/silver/gold
+create schema bronze;
+GO
+create schema silver;
+GO
+create scema gold;
+
