@@ -1,0 +1,142 @@
+    -- Inserting the data from CSV file from a local computer and Load them bulk
+--1. copy the path from local computer and adding \cust_info.csv in last
+--2. becuase having head leyaer starting from row number 2 >> firstrow = 2
+--3. Difince the seperation between data >> in this case is "," we are using csv file 'fieldterminator'
+--4. We are locking the entire table durring the loading
+--5. To preventing duplicated data using Truncate NOTE: Will delete the existing data at frist "IMPORTANT" if data needed befor
+--6. Putting all of them in a stroed procedures in database as boroze_layer to make it automaticly call when or set it up as trigger for leather on
+--7. Adding Error and Catch to prevent failing and get useful info about the process
+--8. Getting process time >> Start and end time
+
+create or alter procedure bronze.load_bronze as
+begin
+	DECLARE @start_time DATETIME, @end_time DATETIME, @batch_start_time DATETIME, @batch_end_time DATETIME;
+	begin try
+		Set @batch_start_time = GETDATE(); -- for all
+		print '==========================================';
+		print ' Loading Bronze Layer';
+		print '==========================================';
+
+		print '__________________________________________'
+		print ' Loading CRM Tables | crm_cust_info | crm_pred_info | crm_sale_details';
+		print '------------------------------------------'
+		
+		SET @start_time = GETDATE();
+		print'>> Truncating Table: bronze.crm_cust_info';
+		Truncate table bronze.crm_cust_info;
+	
+		print'>> Inserting Data Into: bronze.crm_cust_info';
+		bulk insert bronze.crm_cust_info
+		from 'folder_path\cust_info.csv'
+		with(
+			firstrow = 2,
+			fieldterminator = ',',
+			tablock
+			);
+		SET @end_time = GETDATE();
+		print concat('Load Duration: ', DATEDIFF(second, @start_time, @end_time),'s');
+		print '_____________________________________';
+		print'>> Truncating Table: bronze.crm_sale_details';
+		truncate table bronze.crm_sale_details;
+
+		SET @start_time = GETDATE();
+		print'>> Inserting Data Into: bronze.crm_sale_details';
+		bulk insert bronze.crm_sale_details
+		from 'folder_path\sales_details.csv'
+		with(
+			firstrow = 2,
+			fieldterminator = ',',
+			tablock
+			);
+			SET @end_time = GETDATE();
+		print concat('Load Duration: ', DATEDIFF(second, @start_time, @end_time),'s');
+		print '_____________________________________';
+		print'>> Truncating Table: bronze.crm_prd_info';
+		
+		SET @start_time = GETDATE();
+		truncate table bronze.crm_prd_info;
+	
+		print'>> Inserting Data Into: bronze.crm_prd_info';
+		bulk insert bronze.crm_prd_info
+		from 'folder_path\prd_info.csv'
+		with(
+			firstrow = 2,
+			fieldterminator = ',',
+			tablock
+			);
+			SET @end_time = GETDATE();
+		print concat('Load Duration: ', DATEDIFF(second, @start_time, @end_time),'s');
+		print '_____________________________________';
+	
+		print '__________________________________________';
+		print ' Loading ERP Tables | erp_loc_a101 | erp_cust_az12 | erp_px_cat_g1v2';
+		print '------------------------------------------';
+
+		SET @start_time = GETDATE();
+		print'>> Truncating Table: bronze.erp_loc_a101';
+		truncate table bronze.erp_loc_a101;
+	
+		print'>> Inserting Data Into: bronze.erp_loc_a101';
+		bulk insert bronze.erp_loc_a101
+		from 'folder_path\LOC_A101.csv'
+		with(
+			firstrow = 2,
+			fieldterminator = ',',
+			tablock
+			);
+			SET @end_time = GETDATE();
+		print concat('Load Duration: ', DATEDIFF(second, @start_time, @end_time),'s');
+		print '_____________________________________';
+		
+		SET @start_time = GETDATE();
+		print'>> Truncating Table: bronze.erp_cust_az12';
+		truncate table bronze.erp_cust_az12;
+	
+		print'>> Inserting Data Into: bronze.erp_cust_az12';
+		bulk insert bronze.erp_cust_az12
+		from 'folder_path\CUST_AZ12.csv'
+		with(
+			firstrow = 2,
+			fieldterminator = ',',
+			tablock
+			);
+			SET @end_time = GETDATE();
+		print concat('Load Duration: ', DATEDIFF(second, @start_time, @end_time),'s');
+		print '_____________________________________';
+		
+		SET @start_time = GETDATE();
+		print'>> Truncating Table: bronze.erp_px_cat_g1v2';
+		
+		truncate table bronze.erp_px_cat_g1v2;
+	
+		print'>> Inserting Data Into: bronze.erp_px_cat_g1v2';
+		bulk insert bronze.erp_px_cat_g1v2
+		from 'folder_path\PX_CAT_G1V2.csv'
+		with(
+			firstrow = 2,
+			fieldterminator = ',',
+			tablock
+			);
+			SET @end_time = GETDATE();
+		print concat('Load Duration: ', DATEDIFF(second, @start_time, @end_time),'s');
+		print '_____________________________________';
+
+		print '======================================';
+		SET @batch_end_time = GETDATE();
+		print concat('Load Duration for whole Process: ', DATEDIFF(second, @start_time, @end_time),' Second');
+
+	end try
+	
+	begin catch
+		print '==========================================';
+		print ' Error Occurd During Loading Bronze Layer';
+		print concat('Error Message: ', ERROR_MESSAGE());
+		print concat('Error Number: ', ERROR_NUMBER());
+		print concat('Error State: ', ERROR_STATE());
+		print '==========================================';
+
+	end catch;
+end;
+go
+-- ** Going to check the Stored procedure to make sure will work currently
+exec bronze.load_bronze;
