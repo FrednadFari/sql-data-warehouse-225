@@ -1,6 +1,8 @@
--- Inserting Data Into: SILVER LAYER -- 6 Tables -- 3>crm & 3>erp --
+-- Inserting Data Into: SILVER LAYER From BRONZE LAYER-- 6 Tables -- 3>crm & 3>erp --
 -- Truncate and Inserting data >> NOTE: Doing full insert >> NOT BIG DATA >> Expectation Time is short
 ---Warning--- Making Automatic Inserting with truncating old data>> will delete all existing DATA--
+-- None Parameters >> Does not accept any parameters or returning any values
+-- Call by >> " EXEC silver_load_silver; "
 create or alter procedure silver.load_silver as
 begin
 	DECLARE @start_time DATETIME, @end_time DATETIME, @batch_start_time DATETIME, @batch_end_time DATETIME;
