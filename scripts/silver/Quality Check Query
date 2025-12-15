@@ -1,0 +1,570 @@
+--1. Check for nulls or duplicates in Primary key
+--Expectation: NO Result
+use DataWareHouse;
+select cst_id
+,count(*) 
+from silver.crm_cust_info
+group by cst_id
+having count(*) > 1 or cst_id is null;
+
+-- check for unwanted space
+-- Expecting: No Results
+select cst_lastname from silver.crm_cust_info
+where cst_lastname != trim(cst_lastname)
+
+-- data Standardization & Consistency
+SELECT DISTINCT cst_gndr
+from silver.crm_cust_info
+-- data Standardization & Consistency
+SELECT DISTINCT cst_marital_status
+from silver.crm_cust_info
+select count(*) from silver.crm_cust_info
+-------------------------------------------------------------------------------->
+-- 1. checks fro nulls or duplicates in Primary key
+-- >> Expectation >> NO Results
+insert
+into silver.crm_prd_info(
+prd_id, cat_id, prd_key, prd_nm, prd_cost, prd_line, prd_start_dt, prd_end_dt
+)
+select
+prd_id
+,replace(substring(prd_key,1, 5), '-', '_') as cat_id
+,replace(substring(prd_key, 7, len(prd_key)), '-', '_') as prd_key
+,prd_nm -- all good
+,isnull(prd_cost, 0) as prd_cost
+,case upper(trim(prd_line))
+	 when 'M' then 'Mountain'
+	 when 'R' then 'Road'
+	 when 'S' then 'Other Sales'
+	 when 'T' then 'Touring'
+	 else 'N/A'
+ end as prd_line
+,cast(prd_start_dt as date) as prd_start_dt
+,cast(lead(prd_start_dt) over(partition by prd_key order by prd_start_dt)-1 as date) as prd_end_dt
+from bronze.crm_prd_info;d
+
+select * from silver.crm_prd_info
+-------------------------------------------------------------------------------------------------->
+use DataWareHouse;
+-- Checking for nulls or Duplicates in the primary key (prd_id)
+use DataWareHouse;
+select 
+prd_id,
+count(*)
+from bronze.crm_prd_info
+group by prd_id
+having count(prd_id) > 1 or prd_id is null;
+
+-- prd_key >> there is a long line which is better to split them in Two seperated Columns and will be avalible
+-- to use them for referenses key as need it.
+-- 1. Checking if have any nulls
+-- Expectation >> NO Results 
+select prd_key from bronze.crm_prd_info where prd_key is null; -- No Results >> GOOD NO frarther action need
+
+select prd_key
+,replace(substring(prd_key, 1, 5), '-', '_') as cat_id
+from bronze.crm_prd_info;
+-- Check with the category Product to make sure they ar joinable 
+-- As find out different between these two are "-" and "_"
+select distinct id from bronze.erp_px_cat_g1v2 ;
+-- check if we have any nulls
+select id from bronze.erp_px_cat_g1v2 where id is null;
+select id, count(*) from bronze.erp_px_cat_g1v2 group by id;
+select cat.id, p.cat_id
+from bronze.erp_px_cat_g1v2 as cat
+inner join (select prd_key
+,replace(substring(prd_key, 1, 5), '-', '_') as cat_id
+from bronze.crm_prd_info) as p
+on p.cat_id = cat.id
+-- They are some missing rows need to investigate
+-- Let check which of them are common in bothe tabel
+select
+*
+,replace(substring(prd_key, 1, 5),'-','_') as cat_id
+from bronze.crm_prd_info
+where replace(substring(prd_key, 1, 5), '-', '_') not in
+(select distinct id from bronze.erp_px_cat_g1v2)
+-- Resust the cat_id = CO_PE is not in our erp_px_cat_g1v2
+select  id from bronze.erp_px_cat_g1v2
+where id = 'CO_PE'
+----------------------------
+-- The reason need product key (prd_key) is to matched with sales_details
+select * from( select *
+,substring(prd_key, 7, len(prd_key)) as prd_key_1
+from bronze.crm_prd_info as pr)spr
+inner join bronze.crm_sale_details as sd
+on spr.prd_key_1 = sd.sls_prd_key; -- >> total of 89818 found
+----------------------------
+select * from( select *
+,substring(prd_key, 7, len(prd_key)) as prd_key_1
+from bronze.crm_prd_info as pr)spr
+right join bronze.crm_sale_details as sd
+on spr.prd_key_1 = sd.sls_prd_key; -- >> left join >> 90038 || right join >> 89818
+----------------------------
+select count(*) from bronze.crm_prd_info; -- >> 397
+GO
+select count(*) from bronze.crm_sale_details; -- >> 60398 found
+-- Also we can check the distinct for each one and chacking if they have something not commond in these two
+select count(distinct sls_prd_key) from bronze.crm_sale_details; -- >> 130 found
+--------------
+select 
+count(distinct substring(prd_key, 7, len(prd_key)))
+from bronze.crm_prd_info; -- >> 295 found >> can be some extra or short prd_key will need to explor in it
+select 
+substring(prd_key, 7, len(prd_key)) as prd_key
+from bronze.crm_prd_info
+where SUBSTRING(prd_key, 7, len(prd_key)) not in 
+(select sls_prd_key from bronze.crm_sale_details); -->> 220 found and OK because some product but not order for them
+-------------- We are DONE with prd_key---------------------
+-------------==========================---------------------
+--------------       Start prd_nm      ---------------------
+select * from bronze.crm_prd_info;
+Go
+select count(prd_nm) as total_prd_nm from bronze.crm_prd_info;
+GO
+select distinct count(prd_nm) as unique_prd_nm from bronze.crm_prd_info;
+-- Checking for underline and any extra unwanted spaces
+select prd_nm from bronze.crm_prd_info
+where prd_nm <> trim(prd_nm); -->> No results >> GOOD >> No Action Needed.
+-----------======================------------
+------------- prd_cost----------------
+-- checking for nulls or cost of 0 or negative
+select prd_id ,prd_cost from bronze.crm_prd_info
+where prd_cost <= 0 or prd_cost is null; -- >> prd_id 210 & 211 >> NO prd_cost
+select * from bronze.crm_prd_info
+where prd_id in(210,211);
+----- Plased of the bussines we are allow to change nulls to "0" means NO COST. using isnull OR coalesce
+select coalesce(prd_cost, 0) as prd_cost
+from bronze.crm_prd_info
+order by coalesce(prd_cost, 0)
+---------------------===================
+----------- prd_line-----------------
+select distinct prd_line from bronze.crm_prd_info;-- >> 5 outputs>> Null, M, R, S, T.
+select count(*) from bronze.crm_prd_info
+where prd_line is NULL; -- >> 17 NULLs found
+-- after getting information about what each are belongs to will change the names with meaningful names
+-- using CASE is the best approach for this task.
+select 
+case upper(trim(prd_line))
+	 when 'M' then 'Mountain'
+	 when 'R' then 'Road'
+	 when 'S' then 'Other Sales'
+	 when 'T' then 'Touring'
+	 else 'N/A'
+ end as prd_line
+from bronze.crm_prd_info;
+----------- prd_star_dt & prd_end_dt -----------------
+select count(*) from bronze.crm_prd_info
+where prd_end_dt < prd_start_dt; -- >> total 200 found
+--------------------
+select count(*) from bronze.crm_prd_info
+where prd_start_dt is null; -- >> 0 found
+--------------------
+select count(*) from bronze.crm_prd_info
+where prd_end_dt is null; -- 197 fuou
+---------------
+select prd_id ,prd_start_dt, prd_end_dt from bronze.crm_prd_info
+where prd_end_dt is null; 
+---------------
+select prd_id ,prd_start_dt, prd_end_dt from bronze.crm_prd_info
+where prd_end_dt < prd_start_dt;
+-- NOTE: The reason is not NULLs >> issues are wrong or switched info >> needs more info to check!!
+-- The Approach without existing info to check with ourself>> Saved the ummatched info and Opened them with Python/Pandas
+-- AND goning to see the issue
+create table bronze.TMP_crm_prd_info
+(prd_id int
+,prd_start_dt date
+,prd_end_dt date);
+------ 
+insert into bronze.TMP_crm_prd_info 
+select prd_id ,prd_start_dt, prd_end_dt from bronze.crm_prd_info
+where prd_end_dt < prd_start_dt;
+----------
+select * from bronze.TMP_crm_prd_info; 
+----------
+-- After investing with pandas library we can not say they are just switched some of the data are saved many times
+--- with wrong info like overlaping or wrong time
+-- Next Step >> Checking with prd_key to fince duplicated with wrong info
+select * from (select distinct *
+,substring(prd_key, 7, len(prd_key)) as NEW_prd_key 
+from bronze.crm_prd_info 
+where prd_end_dt < prd_start_dt or prd_start_dt is null
+) as tmp1
+-- also we need to check with the prd_key if the one with issu has prd_end_dt NULL
+join
+(select distinct *
+,substring(prd_key, 7, len(prd_key)) as NEW_prd_key 
+from bronze.crm_prd_info 
+where coalesce(prd_end_dt,0) < prd_start_dt or prd_start_dt is null
+) as tmp2
+on tmp1.NEW_prd_key = tmp2.NEW_prd_key
+order by tmp1.NEW_prd_key
+-- We are facing to some wrong info 1.First Approach to fix them manually
+--- 2. will use lead() & log() >> Best Approach for that
+select prd_id, prd_key, prd_nm, prd_start_dt, prd_end_dt
+,lead(prd_start_dt) over(partition by prd_key order by prd_start_dt)-1 as prd_end_dt_test
+from bronze.crm_prd_info
+where prd_key in ('AC-HE-HL-U509-R', 'AC-HE-HL-U509')
+-- This Query work will use it for all means as on they are partition by prd_key will fix automaticlly
+------------------------------------------------------------------------------------------------------>
+-- Quality check
+-- check for nulls or duplicates in primary key
+-- expectation: NO Results
+select
+prd_id
+, count(*)
+from silver.crm_prd_info
+group by prd_id 
+having count(*) >1 OR prd_id is null;
+--------------------------
+-- check for unwanted spaces
+-- expectation: NO Results
+GO
+select prd_nm
+from silver.crm_prd_info 
+where prd_nm <> trim(prd_nm);
+-----------
+-- Check fro nulls or negatuve values 
+-- Expectation: NO Results
+Go
+select prd_cost
+from silver.crm_prd_info
+where prd_cost < 0 or prd_cost is null;
+----------
+-- Data Standardization & Consistency
+GO
+select distinct prd_line
+from silver.crm_prd_info;
+---------
+--Check for invalid Date Orders
+-- Expectation: NO Results
+GO
+select *
+from silver.crm_prd_info
+where prd_end_dt < prd_start_dt
+------------------------------------
+select top 10 * from silver.crm_prd_info;
+GO
+select count(*) as [Total Avalible Rows] from silver.crm_prd_info;
+--------------------------------
+-- Check for invalid date Orders
+-- Expectation: NO Results >> good> no ship or due date are smaller then order date
+select *
+from silver.crm_sales_details
+where sls_order_dt > sls_ship_dt or sls_order_dt > sls_due_dt
+--------------------------------
+-- Cheack data consistency sales/quantity/price
+-- Expectation: NO Results >> Good >> no Nulls or negative or miss calculation data is ready for analytics
+select * FROM silver.crm_sales_details
+where sls_sales <> sls_price * sls_quantity or sls_sales is null 
+	or sls_quantity is null or sls_quantity < 1
+	or sls_price is null or sls_sales is null
+	or sls_sales <= 0 or sls_price <= 0
+order by sls_sales, sls_quantity, sls_price;
+---------------------------------------------------------------------------------------------------------->
+-- the count of total order number and distinct are the same >> good >> NO action need
+use DataWareHouse;
+select sls_ord_num
+,count(*)
+from bronze.crm_sale_details
+group by sls_ord_num
+having count(sls_ord_num) > 1 or sls_ord_num is null;
+------------------
+SELECT sd.*
+FROM bronze.crm_sale_details sd
+JOIN (
+    SELECT sls_ord_num
+    FROM bronze.crm_sale_details
+    GROUP BY sls_ord_num
+    HAVING COUNT(*) > 1
+) d
+  ON d.sls_ord_num = sd.sls_ord_num
+ORDER BY sd.sls_ord_num;
+-----------------------
+-- do we have any unwanted spaces for sls_ord_num
+-- Expectation: NO Result  >> NO Result >> NO action need.
+select * from bronze.crm_sale_details
+where sls_ord_num != trim(sls_ord_num);
+----------------------
+-- Checking prd_key from bronze.crm_sales_details with concting to silver.crm_prd_info
+-- 1. need to replace the "-" with "_" to make sure will get the same info
+-- Expectation: NO Results >> GOOD >> NO Action need
+select sls_ord_num
+,replace(sls_prd_key, '-', '_') as sls_prd_key
+,sls_cust_id
+,sls_order_dt
+,sls_ship_dt
+,sls_due_dt
+,sls_sales
+,sls_quantity
+,sls_price
+from bronze.crm_sale_details
+where replace(sls_prd_key, '-', '_') not in (select prd_key from silver.crm_prd_info)
+--------------
+--checking sls_cust_id as well
+-- NO need to change anythink
+-- Expectation: NO Resulst >> Good >> NO Action need
+select * from bronze.crm_sale_details
+where sls_cust_id not in (select cst_id from silver.crm_cust_info)
+-----------
+-------- NOW we are going to the columns for date wich as we can see in the bornze tables they saved as integer no date
+-- going to cast them
+select 
+substring(cast(sls_order_dt as varchar),3,'-')  as sls_order_dt
+from bronze.crm_sale_details
+SELECT
+    
+    CASE 
+        WHEN sls_order_dt = 0 OR sls_order_dt IS NULL THEN NULL
+        ELSE CONVERT(date, CONVERT(char(8), sls_order_dt), 112)  -- 112 = yyyymmdd
+    END AS sls_order_dt
+FROM bronze.crm_sale_details;
+SELECT
+    CASE
+        WHEN sls_order_dt = 0 OR sls_order_dt IS NULL THEN NULL
+        ELSE TRY_CONVERT(date, CONVERT(char(8), sls_order_dt), 112)
+            END AS sls_order_dt
+FROM bronze.crm_sale_details;
+---
+-- Transferming all data in the data column as on they are negative or 0 to NULL.
+select nullif(sls_order_dt, 0) as sls_order_dt
+from bronze.crm_sale_details
+where sls_order_dt <= 0;
+-- --------------
+-- Without any line or underline to total of numbers is the date most be 8 numbers
+-- and checking for boundary the currect date can not be 
+select *
+from bronze.crm_sale_details
+where len(sls_order_dt) <> 8 or sls_order_dt > 20251011 or sls_order_dt < 20070101;
+---/\-- found 19 rows >> 17"0" & 2"bad data" >> Bad Data>> SO69215(sls_ord_num) with 16864(sls_cust_id)
+-- changing
+select 
+case when sls_order_dt = 0 OR len(sls_order_dt) < 8 then NULL
+    else cast(cast(sls_order_dt as varchar) as date)
+end sls_order_dt
+from bronze.crm_sale_details;
+-- doing the same for other dates
+-----------
+-- Order_dt always be befor ship_dt or due_dt
+-- Expectation: NO Results >> GOOD >> Nothing Found
+select * 
+from bronze.crm_sale_details
+where sls_order_dt > sls_ship_dt or sls_order_dt > sls_due_dt;
+-----------
+-- checking Quantity/price/Sales
+-- Sales~Quantity*Price..... NO Negative/Zero/Null
+-- 25 Rows found with Null sls_sales/ Negative sls_sales. null and negative sls_price.
+
+
+select sls_sales, sls_quantity, sls_price
+, sls_price * sls_quantity as NEW_sls_sales
+from bronze.crm_sale_details
+where 
+    sls_quantity <= 0 or sls_quantity is null 
+    or sls_sales <= 0 or sls_sales is null 
+    or sls_price <=0 or sls_price is null;
+--------------
+/*case when sls_price > 0 and sls_price not null then sls_price
+     when sls_price < 0 then sls_price * -1
+end as sls_price
+*/
+------
+
+
+------
+
+select 
+case when sls_price > 0 then sls_price
+     when sls_price is null then  sls_sales/sls_quantity
+     when sls_price < 0 then sls_price * -1
+end as sls_price
+from bronze.crm_sale_details
+where 
+       sls_quantity <= 0 or sls_quantity is null 
+    or sls_sales <= 0 or sls_sales is null 
+    or sls_price <=0 or sls_price is null;
+----
+select sls_cust_id
+,sls_sales
+,sls_quantity
+,sls_price
+from bronze.crm_sale_details
+where 
+    sls_quantity <= 0 or sls_quantity is null 
+    or sls_sales <= 0 or sls_sales is null 
+    or sls_price <=0 or sls_price is null
+order by sls_sales, sls_quantity, sls_price;
+----------------------------------
+----------------------------------
+select sls_cust_id
+,sls_sales as old_sls_sales
+,case when sls_sales is null or sls_sales <= 0 or sls_sales != sls_quantity * abs(sls_price)
+        then sls_quantity * abs(sls_price)
+      else sls_sales
+end as sls_sales
+,sls_quantity
+,sls_price as old_sls_pric
+,case when sls_price is null or sls_price <= 0 or sls_price != abs(sls_sales) / sls_quantity
+        then abs(sls_sales) / nullif(sls_quantity, 0)
+      else sls_price
+end as sls_price
+from bronze.crm_sale_details
+where sls_sales <> sls_quantity * sls_price 
+or sls_sales is null or sls_quantity is null or sls_price is null
+ or sls_sales <= 0 or sls_quantity <= 0 or sls_price <= 0
+order by sls_sales, sls_quantity, sls_price;
+--------------------------------------------------------------------------------------------->
+select top 5 * from bronze.erp_cust_az12;
+go
+select top 5 * from silver.crm_cust_info;
+---------
+-- Based of info from other tables which need to be concted for crm_cust info and prd_key
+--- need to two columns for cid to cst_id and cst_key and cst_id need to be integer to make compateble with cust_info
+-- NOTE make sure is not extra unmatched carachter in column cid like NAS....
+select * from bronze.erp_cust_az12
+where cid like '%AW00011000%' -- small table is ok to use the whole %% rather than indexes
+select 
+cid
+,case
+	when cid like 'NAS%' then substring(cid, 4, len(cid))
+	else cid
+end as cid
+from bronze.erp_cust_az12;
+
+--------------
+-- check if they have in the silver.crm_cust_info
+select 
+cid as old_cid
+, case when cid like 'NAS%' then substring(cid, 4, len(cid))
+		else cid
+end as cid
+,bdate
+,gen
+from bronze.erp_cust_az12
+where
+	case when cid like 'NAS%' then substring(cid, 4, len(cid)) else cid
+end not in (select distinct cst_key from silver.crm_cust_info)
+
+-------------
+-- Identify out-of-range Dates
+select bdate from bronze.erp_cust_az12
+where len(bdate) <> 10 or bdate is null or bdate > getdate() or bdate < '1925-01-01'
+--------------
+-- NOT Need to check the length of bdate because already stored as date but will do it for varchar or integer
+select bdate as old_bdate
+,case when len(bdate) != 10 or bdate > getdate() or bdate < '1925-01-01' then null
+	else bdate
+end as bdate
+from bronze.erp_cust_az12
+order by bdate 
+----------
+-- Checking gender and if missing or bad fromat fix it>> found NULl, F, empty, Male, M, Female
+select distinct gen from bronze.erp_cust_az12
+--
+select distinct
+case when upper(trim(gen)) 
+	 in ('F', 'FEMALE') then 'Female'
+	 when upper(trim(gen)) 
+	 in ('M', 'MALE') then 'Male'
+    else 'N/A'
+end as gen
+from bronze.erp_cust_az12
+--------
+-- Data Quality after inserted data in silver layer
+select count(*) from silver.erp_cust_az12; -- 18483 >> GOOD
+-------
+-- Expectation: NO Results
+select len(bdate) from silver.erp_cust_az12
+where len(bdate)<>10
+------- NO Results
+select bdate from silver.erp_cust_az12
+where bdate > getdate() or bdate < '1925-01-01';
+------18483 found >> Good
+select az.cid
+from silver.erp_cust_az12 as az
+inner join silver.crm_cust_info as cin
+on az.cid = cin.cst_key
+------- >> GOOD >> Found Male,Female & N/A
+select distinct gen from silver.erp_cust_az12
+------------------------------------------------------------------------------------------------>
+-- cid type is varchar matched with others, no null, no wrong length and no start with NAS
+-- Just the issue is "-" in the info need to remove
+select 
+replace(cid, '-','') as did
+
+
+,cntry
+from bronze.erp_loc_a101
+where cid is null or cid like '%NAS' or len(cid) <> 10
+-----------
+-- many wrong information saved in country need to fix
+select distinct cntry from bronze.erp_loc_a101;
+----
+select distinct
+case when upper(trim(cntry)) in ('DE', 'GERMANY') then 'Germany'
+  when upper(trim(cntry)) in ('US', 'USA') then 'United States'
+  WHEN cntry IS NULL OR trim(cntry) = '' THEN 'N/A'
+  else trim(cntry)
+end as cntry
+from bronze.erp_loc_a101;
+--------------------------
+-- QUALITY CHECK after DATE CLEANING
+-- Expectation: NO Results >> Good
+select * from silver.erp_loc_a101
+where cid is null or len(cid) <> 10;
+--
+-- Let join to make sure abbilty of joining >> Good >> Len is 18484 matched
+select * from silver.erp_loc_a101 as eloc
+join silver.crm_cust_info as cinfo
+on eloc.cid = cinfo.cst_key
+--- >> GOOD >> all GOOD
+select distinct cntry from silver.erp_loc_a101
+------------------------------------------------------------------------------------>
+select
+id
+,cat
+,subcat
+,maintenance
+from bronze.erp_px_cat_g1v2;
+
+select distinct cat_id from silver.crm_prd_info;
+select distinct id from bronze.erp_px_cat_g1v2;
+----------
+--- id is match with cat_id from prd_info and no need any action >> GOOD
+select * from bronze.erp_px_cat_g1v2 as cg
+ join silver.crm_prd_info as cinfo
+on cg.id = cinfo.cat_id
+--------------------- >> GOOD >> 4 Category avalible >> No action need
+select distinct cat from bronze.erp_px_cat_g1v2
+------- Expectation: No Results >> GOOD
+select * from bronze.erp_px_cat_g1v2 where cat <> trim(cat)
+------------------- >> GOOD >> Sub Categories avalible
+select distinct subcat from bronze.erp_px_cat_g1v2
+----- Expectation: NO Results >> Good >> NO Action need.
+select * from bronze.erp_px_cat_g1v2
+where subcat <> trim(subcat)
+------ 2 values Yes and No
+select distinct maintenance from bronze.erp_px_cat_g1v2
+------ Expectation: NO Results >> GOOD >> No Action
+select * from bronze.erp_px_cat_g1v2 where maintenance <> trim(maintenance)
+-------------
+-- Qualty Check after inserting
+
+--- id is match with cat_id from prd_info and no need any action >> GOOD
+select * from silver.erp_px_cat_g1v2 as cg
+ join silver.crm_prd_info as cinfo
+on cg.id = cinfo.cat_id
+--------------------- >> GOOD >> 4 Category avalible >> No action need
+select distinct cat from silver.erp_px_cat_g1v2
+------- Expectation: No Results >> GOOD
+select * from silver.erp_px_cat_g1v2 where cat <> trim(cat)
+------------------- >> GOOD >> Sub Categories avalible
+select distinct subcat from silver.erp_px_cat_g1v2
+----- Expectation: NO Results >> Good >> NO Action need.
+select * from silver.erp_px_cat_g1v2
+where subcat <> trim(subcat)
+------ 2 values Yes and No
+select distinct maintenance from silver.erp_px_cat_g1v2
+------ Expectation: NO Results >> GOOD >> No Action
+select * from silver.erp_px_cat_g1v2 where maintenance <> trim(maintenance)
+--------------------------------------------------------------------------------------------------->
