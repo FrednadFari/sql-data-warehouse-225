@@ -83,5 +83,25 @@ All SQL logic is written using standard SQL patterns and can be migrated from **
 - Cross-database SQL portability
 
 ---
-
-![Project Status](https://img.shields.io/badge/Status-Completed-brightgreen)
+```text
+mini-data-warehouse/
+│
+├── data/
+│   ├── bronze/                 # Raw CSV files ingested from source systems
+│   ├── silver/                 # Cleaned, standardized, and integrated datasets
+│   └── gold/                   # Logical analytical layer (business-ready views)
+│
+├── sql/
+│   ├── bronze/                 # Raw data ingestion scripts
+│   ├── silver/                 # Data cleaning, validation, and transformation logic
+│   └── gold/                   # Aggregated business and analytical views
+│
+├── python/
+│   ├── data_cleaning.ipynb     # Pandas-based data cleaning & validation
+│   └── data_quality_checks.py  # Optional automated data quality checks
+│
+├── diagrams/
+│   └── architecture.png        # Bronze–Silver–Gold architecture diagram
+│
+├── README.md                   # Project documentation
+└── requirements.txt            # Python dependencies
