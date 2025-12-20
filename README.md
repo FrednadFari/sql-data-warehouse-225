@@ -84,27 +84,25 @@ All SQL logic is written using standard SQL patterns and can be migrated from **
 
 ---
 
-## Resume Summary
-Built a mini data warehouse using a Bronze–Silver–Gold architecture, performing extensive data cleaning and integration in the Silver layer using SQL Server and Python (Pandas), and delivering analytics-ready Gold views for reporting.
-
 mini-data-warehouse/
 │
 ├── data/
-│   ├── bronze/                 # Raw CSV source files
-│   ├── silver/                 # Cleaned & integrated datasets
-│   └── gold/                   # Analytical views (logical layer)
+│   ├── bronze/                 # Raw CSV files ingested from source systems
+│   ├── silver/                 # Cleaned, standardized, and integrated datasets
+│   └── gold/                   # Logical analytical layer (business-ready views)
 │
 ├── sql/
-│   ├── bronze/                 # Raw ingestion scripts
-│   ├── silver/                 # Data cleaning & transformation logic
-│   └── gold/                   # Business & analytical views
+│   ├── bronze/                 # Raw data ingestion scripts
+│   ├── silver/                 # Data cleaning, validation, and transformation logic
+│   └── gold/                   # Aggregated business and analytical views
 │
 ├── python/
-│   ├── data_cleaning.ipynb     # Pandas-based validation & preprocessing
-│   └── data_quality_checks.py  # Optional data quality scripts
+│   ├── data_cleaning.ipynb     # Pandas-based data cleaning & validation
+│   └── data_quality_checks.py  # Optional automated data quality checks
 │
 ├── diagrams/
-│   └── architecture.png        # Bronze–Silver–Gold diagram (already created)
+│   └── architecture.png        # Bronze–Silver–Gold architecture diagram
 │
-├── README.md
+├── README.md                   # Project documentation
 └── requirements.txt            # Python dependencies
+house using a Bronze–Silver–Gold architecture, performing extensive data cleaning and integration in the Silver layer using SQL Server and Python (Pandas), and delivering analytics-ready Gold views for reporting.
