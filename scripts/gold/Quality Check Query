@@ -1,0 +1,46 @@
+select column_name
+from INFORMATION_SCHEMA.COLUMNS
+where TABLE_SCHEMA = 'silver' and table_name = 'crm_cust_info';
+
+select column_name from INFORMATION_SCHEMA.columns
+where table_schema = 'silver' and table_name = 'erp_loc_a101';
+1. Aggregation: get data for gender from crm and after in erp and save them
+as gender
+2. Changing the names came from other tables to new and more usndrstandble name
+3. Some repositiones for columns counrtry after last_name and birthdate before
+create date.
+4.1. for this table and as we can see all are dimention we need a primary key rather than the one
+is alreasy existed from other tables.
+4.2. "Surrogate Key" which is the System_generated unique identifier assigned to each record in a tabel
+5. All object in gold layer are view
+======================================
+select COLUMN_NAME
+from INFORMATION_SCHEMA.COLUMNS
+where table_schema = 'silver' and table_name = 'crm_prd_info'
+----------------
+1. To find the correct information in this table is good to go with end date(prd_end_dt)
+ which is refare to the time ans as it is NULL means they are still active and good to have
+ "" Filtering out all historical data ""
+ also we can remove the prd_end_dt >> all of them NULL
+2. joining silver.crm_prd_info with erp_px_g1v2 (Category table). join with cat_id
+3. Checking for quality of data with subquery.. Expectation >> NO Result >> GOOD. frist two left join
+4. Checking for duplicated colouns (are the same info) >>> Nothing Found >> GOOD>
+5. Columns order by relative names prd_id, cat_id ...............
+6. Making understandble names for each columns 
+7. Making Primary Key "Surrogate Key".
+8. Creating View
+===============================
+select column_name
+from INFORMATION_SCHEMA.COLUMNS
+where TABLE_SCHEMA = 'silver' and TABLE_NAME = 'crm_sales_details'
+--------------------------------------------
+1. We are going to first switch sls_prd_key and sls_cust_id to surrogate keys which created
+for new gold views and use them >> Data Lookup joining tables just toget this information.
+2. Left join with gold.dim_products and gold.dim_customer and added product_key and customer_key
+ rather than sls_prd_key, sls_cust_id.
+3. Name columns to new understandable names.
+4. make sure they are in group order like >> Dimension keys[order_number, product_key, customer_ke]
+ dates[order_date, shipping_date, due_date], Measures[sales_amount, quntity, price].
+5. Creating the view
+
+==============================
