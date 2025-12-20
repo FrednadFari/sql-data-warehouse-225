@@ -87,3 +87,24 @@ All SQL logic is written using standard SQL patterns and can be migrated from **
 ## Resume Summary
 Built a mini data warehouse using a Bronze–Silver–Gold architecture, performing extensive data cleaning and integration in the Silver layer using SQL Server and Python (Pandas), and delivering analytics-ready Gold views for reporting.
 
+mini-data-warehouse/
+│
+├── data/
+│   ├── bronze/                 # Raw CSV source files
+│   ├── silver/                 # Cleaned & integrated datasets
+│   └── gold/                   # Analytical views (logical layer)
+│
+├── sql/
+│   ├── bronze/                 # Raw ingestion scripts
+│   ├── silver/                 # Data cleaning & transformation logic
+│   └── gold/                   # Business & analytical views
+│
+├── python/
+│   ├── data_cleaning.ipynb     # Pandas-based validation & preprocessing
+│   └── data_quality_checks.py  # Optional data quality scripts
+│
+├── diagrams/
+│   └── architecture.png        # Bronze–Silver–Gold diagram (already created)
+│
+├── README.md
+└── requirements.txt            # Python dependencies
