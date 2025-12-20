@@ -105,4 +105,3 @@ mini-data-warehouse/
 │
 ├── README.md                   # Project documentation
 └── requirements.txt            # Python dependencies
-house using a Bronze–Silver–Gold architecture, performing extensive data cleaning and integration in the Silver layer using SQL Server and Python (Pandas), and delivering analytics-ready Gold views for reporting.
